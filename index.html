@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local Web Karaoke 線上點歌本 | Denmoku Songbook</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: radial-gradient(circle at top, #1b263b 0%, #070d18 100%);
+      font-family: "Hiragino Kaku Gothic ProN", "Meiryo", "Microsoft JhengHei", sans-serif;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col">
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_12px_#ffaa00]"></span>
+        <h1 class="text-lg font-bold tracking-wide">Local Web Karaoke <span class="text-xs font-normal text-amber-400 ml-1">線上點歌本</span></h1>
+      </div>
+      <a href="player.html" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold transition">
+        直接開啟舞台 / DAW 編輯器 →
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 flex-1 w-full">
+    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 mb-6 space-y-4 shadow-xl">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1.5">Denmoku 關鍵字查歌（支援曲號、歌名、歌手 / 社團、原曲出處）</label>
+        <input id="search-input" type="text" placeholder="輸入 10001、START、FELT 或 夜空..."
+          class="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 focus:outline-none rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500" />
+      </div>
+      <div id="category-bar" class="flex flex-wrap gap-2">
+        <button data-cat="ALL" class="cat-btn bg-amber-500 text-slate-950 text-xs px-3 py-1.5 rounded-lg font-bold">全部分類</button>
+      </div>
+    </div>
+
+    <div id="song-list" class="space-y-3">
+      <p class="text-slate-400 text-sm">正在載入歌本資料...</p>
+    </div>
+  </main>
+
+  <footer class="border-t border-slate-900 py-5 text-center text-xs text-slate-500">
+    Local Web Karaoke & Syllable Studio · Maintained by Kyo.S via AGENTS.md
+  </footer>
+
+  <script>
+    let allSongs = [];
+    let currentCat = 'ALL';
+
+    async function init() {
+      try {
+        const res = await fetch('./data/songbook.json');
+        allSongs = await res.json();
+        renderCategories(allSongs);
+        renderSongs();
+      } catch (e) {
+        document.getElementById('song-list').innerHTML =
+          '<p class="text-rose-400 text-sm">無法讀取 data/songbook.json，請透過 GitHub Pages 或本機伺服器開啟。</p>';
+      }
+    }
+
+    function renderCategories(songs) {
+      const cats = [...new Set(songs.map(s => s.category))];
+      const bar = document.getElementById('category-bar');
+      cats.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.dataset.cat = cat;
+        btn.textContent = cat;
+        btn.className = 'cat-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg transition';
+        bar.appendChild(btn);
+      });
+
+      bar.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('cat-btn')) return;
+        document.querySelectorAll('.cat-btn').forEach(b => {
+          b.className = 'cat-btn bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg transition';
+        });
+        e.target.className = 'cat-btn bg-amber-500 text-slate-950 text-xs px-3 py-1.5 rounded-lg font-bold';
+        currentCat = e.target.dataset.cat;
+        renderSongs();
+      });
+    }
+
+    document.getElementById('search-input').addEventListener('input', renderSongs);
+
+    function renderSongs() {
+      const kw = document.getElementById('search-input').value.trim().toLowerCase();
+      const filtered = allSongs.filter(s => {
+        const matchCat = currentCat === 'ALL' || s.category === currentCat;
+        const matchKw = !kw ||
+          s.songId.includes(kw) ||
+          s.title.toLowerCase().includes(kw) ||
+          s.artist.toLowerCase().includes(kw) ||
+          s.source.toLowerCase().includes(kw);
+        return matchCat && matchKw;
+      });
+
+      const list = document.getElementById('song-list');
+      if (filtered.length === 0) {
+        list.innerHTML = '<p class="text-slate-500 text-sm py-6 text-center">找不到符合條件的歌曲</p>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(song => {
+        const playHref = song.lyricFile
+          ? `player.html?file=${encodeURIComponent(song.lyricFile)}&title=${encodeURIComponent(`#${song.songId} ${song.title} - ${song.artist}`)}`
+          : `player.html?title=${encodeURIComponent(`#${song.songId} ${song.title}`)}`;
+
+        return `
+          <div class="bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">#${song.songId}</span>
+                <span class="text-xs text-slate-300 bg-slate-800 px-2 py-0.5 rounded">${song.category}</span>
+                <span class="text-xs text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">${song.format || 'LRC'}</span>
+                ${song.hasRuby ? '<span class="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">含振假名</span>' : ''}
+              </div>
+              <h3 class="text-base font-bold text-white">${song.title}</h3>
+              <p class="text-xs text-slate-400">${song.artist} ｜ 出處：${song.source}</p>
+            </div>
+            <a href="${playHref}"
+              class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs px-4 py-2.5 rounded-lg font-bold transition text-center shrink-0">
+              🎤 立即開唱
+            </a>
+          </div>
+        `;
+      }).join('');
+    }
+
+    init();
+  </script>
+</body>
+</html>
